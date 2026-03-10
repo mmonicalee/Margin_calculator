@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculateur de Marge · Consultation</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0A1628; font-family: 'DM Sans', sans-serif; color: #fff; min-height: 100vh; padding-bottom: 60px; }
+
+    header { background: linear-gradient(135deg, #0D1B3E, #1A2F5A); border-bottom: 2px solid #C8973A; padding: 22px 28px 18px; }
+    header .eyebrow { font-size: 10px; letter-spacing: 0.15em; color: #C8973A; text-transform: uppercase; margin-bottom: 4px; }
+    header h1 { font-size: 22px; font-weight: 800; }
+    header p { font-size: 12px; color: #8A9BB5; margin-top: 4px; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+
+    .card { background: #111E35; border-radius: 14px; padding: 20px; }
+    .card-title { font-size: 11px; font-weight: 700; color: #C8973A; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+
+    /* Table */
+    .table-header { display: grid; grid-template-columns: 28px 1fr 120px 100px 110px; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid #1A2F5A; margin-bottom: 10px; }
+    .table-header span { font-size: 10px; color: #5A7090; text-transform: uppercase; letter-spacing: 0.05em; }
+    .table-header span:not(:first-child):not(:nth-child(2)) { text-align: right; }
+
+    .emp-row { display: grid; grid-template-columns: 28px 1fr 120px 100px 110px; gap: 10px; align-items: center; margin-bottom: 10px; transition: opacity 0.2s; }
+    .emp-row.disabled { opacity: 0.35; }
+
+    .checkbox { width: 20px; height: 20px; border-radius: 5px; border: 2px solid #2A4A80; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+    .checkbox.checked { border-color: transparent; }
+    .checkbox .check { color: #fff; font-size: 12px; font-weight: 900; display: none; }
+    .checkbox.checked .check { display: block; }
+
+    .emp-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .num-input { display: flex; align-items: stretch; background: #0A1628; border-radius: 7px; overflow: hidden; border: 1px solid #1A2F5A; height: 34px; }
+    .num-input .prefix, .num-input .suffix { padding: 0 8px; color: #5A7090; font-size: 11px; font-family: 'DM Mono', monospace; background: #0D1B3E; display: flex; align-items: center; white-space: nowrap; }
+    .num-input .prefix { border-right: 1px solid #1A2F5A; }
+    .num-input .suffix { border-left: 1px solid #1A2F5A; }
+    .num-input input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 13px; font-family: 'DM Mono', monospace; font-weight: 600; padding: 0 8px; text-align: right; width: 0; }
+    input[type=number]::-webkit-inner-spin-button { opacity: 0.3; }
+
+    .subtotal { font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; text-align: right; padding: 7px 10px; background: #0D1B3E; border-radius: 7px; }
+
+    .totals { margin-top: 10px; padding-top: 12px; border-top: 1px solid #1A2F5A; display: flex; flex-direction: column; gap: 7px; }
+    .total-row { display: flex; justify-content: space-between; align-items: center; }
+    .total-row .label { font-size: 12px; color: #8A9BB5; }
+    .total-row .val { font-size: 14px; font-weight: 700; font-family: 'DM Mono', monospace; }
+    .total-box { display: flex; justify-content: space-between; align-items: center; background: #0D1B3E; padding: 10px 14px; border-radius: 9px; margin-top: 4px; }
+    .total-box .label { font-size: 13px; font-weight: 700; }
+    .total-box .val { font-size: 18px; font-weight: 900; color: #C0392B; font-family: 'DM Mono', monospace; }
+
+    /* Override toggle */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-info .toggle-title { font-size: 11px; font-weight: 700; color: #C8973A; letter-spacing: 0.08em; text-transform: uppercase; }
+    .toggle-info .toggle-sub { font-size: 11px; color: #5A7090; margin-top: 2px; }
+    .toggle { width: 42px; height: 24px; border-radius: 12px; background: #1A2F5A; cursor: pointer; transition: background 0.2s; position: relative; flex-shrink: 0; }
+    .toggle.on { background: #C8973A; }
+    .toggle-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 9px; background: #fff; transition: left 0.2s; }
+    .toggle.on .toggle-knob { left: 21px; }
+    .override-input { margin-top: 12px; }
+    .override-hint { font-size: 11px; color: #5A7090; margin-top: 6px; }
+
+    /* Scenarios */
+    .scenarios { display: flex; gap: 12px; }
+    .pill { flex: 1; border-radius: 12px; padding: 18px 14px; text-align: center; position: relative; border: 1px solid #1A2F5A; background: #0D1B3E; }
+    .pill.recommended { background: linear-gradient(135deg, #C8973A, #E8B84B); border: none; box-shadow: 0 6px 24px rgba(200,151,58,0.35); }
+    .pill .badge { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: #0D1B3E; color: #C8973A; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; padding: 3px 10px; border-radius: 20px; border: 1px solid #C8973A; white-space: nowrap; }
+    .pill .pct { font-size: 30px; font-weight: 900; font-family: 'DM Mono', monospace; line-height: 1; }
+    .pill .pct-label { font-size: 10px; margin-top: 3px; margin-bottom: 12px; }
+    .pill .divider { height: 1px; margin-bottom: 10px; }
+    .pill .row-label { font-size: 10px; margin-bottom: 3px; }
+    .pill .row-val { font-size: 16px; font-weight: 800; font-family: 'DM Mono', monospace; margin-bottom: 10px; }
+    .pill .margin-val { font-size: 14px; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+    .pill:not(.recommended) .pct { color: #fff; }
+    .pill:not(.recommended) .pct-label { color: #5A7090; }
+    .pill:not(.recommended) .divider { background: #1A2F5A; }
+    .pill:not(.recommended) .row-label { color: #8A9BB5; }
+    .pill:not(.recommended) .row-val { color: #C8973A; }
+    .pill:not(.recommended) .margin-val { color: #27AE60; }
+
+    .pill.recommended .pct { color: #0D1B3E; }
+    .pill.recommended .pct-label { color: #5A3A00; }
+    .pill.recommended .divider { background: rgba(0,0,0,0.15); }
+    .pill.recommended .row-label { color: #5A3A00; }
+    .pill.recommended .row-val { color: #0D1B3E; }
+    .pill.recommended .margin-val { color: #0D1B3E; }
+
+    /* Bottom grid */
+    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .rate-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: 8px; background: #0D1B3E; border: 1px solid transparent; margin-bottom: 8px; }
+    .rate-row.highlight { background: #1A2F5A; border-color: rgba(200,151,58,0.27); }
+    .rate-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .rate-row .rl { font-size: 12px; color: #8A9BB5; display: flex; align-items: center; gap: 8px; }
+    .rate-row .rv { font-size: 15px; font-weight: 800; font-family: 'DM Mono', monospace; }
+
+    .bar-wrap { height: 38px; border-radius: 8px; overflow: hidden; display: flex; margin-bottom: 14px; }
+    .bar-cost { background: #C0392B; display: flex; align-items: center; justify-content: center; }
+    .bar-margin { background: #27AE60; display: flex; align-items: center; justify-content: center; }
+    .bar-wrap span { font-size: 11px; font-weight: 700; color: #fff; }
+
+    .struct-row { display: flex; justify-content: space-between; text-align: center; }
+    .struct-item .s-label { font-size: 10px; margin-bottom: 3px; }
+    .struct-item .s-val { font-size: 13px; font-weight: 800; font-family: 'DM Mono', monospace; color: #fff; }
+
+    .no-hours { font-size: 12px; color: #5A7090; text-align: center; padding: 20px; }
+
+    @media (max-width: 600px) {
+      .table-header, .emp-row { grid-template-columns: 24px 1fr 90px 70px 80px; gap: 6px; }
+      .scenarios { flex-direction: column; }
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Calculateur de Prix · Consultation</div>
+  <h1>De l'heure facturée à la marge</h1>
+  <p>Entrez les taux horaires et les heures estimées — obtenez le prix client à 30 / 40 / 50% de marge</p>
+</header>
+
+<div class="container">
+
+  <!-- Team table -->
+  <div class="card">
+    <div class="card-title">👥 Équipe & Heures Estimées</div>
+    <div class="table-header">
+      <span></span>
+      <span>Rôle</span>
+      <span style="text-align:right">Taux / heure</span>
+      <span style="text-align:right">Heures</span>
+      <span style="text-align:right">Sous-total</span>
+    </div>
+    <div id="emp-table"></div>
+    <div class="totals">
+      <div class="total-row">
+        <span class="label">Main-d'œuvre brute (<span id="total-hours">0</span>h)</span>
+        <span class="val" id="raw-labor">0 $</span>
+      </div>
+      <div class="total-row">
+        <span class="label">Overhead 40% <span style="color:#5A7090">(bénéfices, admin, locaux)</span></span>
+        <span class="val" style="color:#8A9BB5" id="overhead-val">0 $</span>
+      </div>
+      <div class="total-box">
+        <span class="label">💸 Coût chargé total</span>
+        <span class="val" id="loaded-cost">0 $</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Override -->
+  <div class="card">
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-title">🔧 Coût manuel</div>
+        <div class="toggle-sub">Remplacer le coût calculé par un montant connu</div>
+      </div>
+      <div class="toggle" id="override-toggle" onclick="toggleOverride()">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+    <div id="override-section" style="display:none">
+      <div class="override-input">
+        <div class="num-input">
+          <span class="prefix">$</span>
+          <input type="number" id="override-val" value="0" step="500" oninput="recalc()"/>
+          <span class="suffix">coût total</span>
+        </div>
+      </div>
+      <div class="override-hint" id="override-hint"></div>
+    </div>
+  </div>
+
+  <!-- Scenarios -->
+  <div class="card">
+    <div class="card-title">📊 Scénarios de Prix — 3 niveaux de marge</div>
+    <div class="scenarios">
+      <div class="pill" id="pill-30">
+        <div class="pct">30%</div>
+        <div class="pct-label">marge brute</div>
+        <div class="divider"></div>
+        <div class="row-label">Prix client</div>
+        <div class="row-val" id="price-30">—</div>
+        <div class="divider"></div>
+        <div class="row-label">Marge $</div>
+        <div class="margin-val" id="margin-30">—</div>
+      </div>
+      <div class="pill recommended" id="pill-40">
+        <div class="badge">RECOMMANDÉ</div>
+        <div class="pct">40%</div>
+        <div class="pct-label">marge brute</div>
+        <div class="divider"></div>
+        <div class="row-label">Prix client</div>
+        <div class="row-val" id="price-40">—</div>
+        <div class="divider"></div>
+        <div class="row-label">Marge $</div>
+        <div class="margin-val" id="margin-40">—</div>
+      </div>
+      <div class="pill" id="pill-50">
+        <div class="pct">50%</div>
+        <div class="pct-label">marge brute</div>
+        <div class="divider"></div>
+        <div class="row-label">Prix client</div>
+        <div class="row-val" id="price-50">—</div>
+        <div class="divider"></div>
+        <div class="row-label">Marge $</div>
+        <div class="margin-val" id="margin-50">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom grid -->
+  <div class="bottom-grid">
+
+    <div class="card">
+      <div class="card-title">⚡ Taux Effectif / Heure</div>
+      <div id="eff-rates">
+        <div class="no-hours">Entrez des heures pour voir le taux effectif</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📐 Structure du Prix (40%)</div>
+      <div id="bar-section">
+        <div class="no-hours">Entrez des données pour voir la structure</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const OVERHEAD = 0.40;
+  const ROLES = [
+    { id: "senior",  label: "Architecte Senior",       rate: 95,  hours: 120, enabled: true,  color: "#C8973A" },
+    { id: "analyst", label: "Analyste",                 rate: 58,  hours: 80,  enabled: true,  color: "#2A4A80" },
+    { id: "junior",  label: "Consultant Junior",        rate: 38,  hours: 0,   enabled: false, color: "#5A7090" },
+    { id: "pm",      label: "Gestionnaire de projet",   rate: 72,  hours: 0,   enabled: false, color: "#27AE60" },
+  ];
+
+  let overrideMode = false;
+
+  const fmt = n => new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
+
+  function buildTable() {
+    const container = document.getElementById('emp-table');
+    container.innerHTML = '';
+    ROLES.forEach(emp => {
+      const row = document.createElement('div');
+      row.className = 'emp-row' + (emp.enabled ? '' : ' disabled');
+      row.id = 'row-' + emp.id;
+      row.innerHTML = `
+        <div class="checkbox ${emp.enabled ? 'checked' : ''}" id="cb-${emp.id}" style="background:${emp.enabled ? emp.color : 'transparent'}" onclick="toggleEmp('${emp.id}')">
+          <span class="check">✓</span>
+        </div>
+        <div class="emp-name" style="color:${emp.enabled ? '#fff' : '#5A7090'}" id="name-${emp.id}">${emp.label}</div>
+        <div class="num-input">
+          <span class="prefix">$</span>
+          <input type="number" value="${emp.rate}" min="0" step="1" oninput="updateEmp('${emp.id}','rate',this.value)"/>
+          <span class="suffix">/h</span>
+        </div>
+        <div class="num-input">
+          <input type="number" value="${emp.hours}" min="0" step="1" oninput="updateEmp('${emp.id}','hours',this.value)"/>
+          <span class="suffix">h</span>
+        </div>
+        <div class="subtotal" id="sub-${emp.id}" style="color:${emp.color}">${emp.enabled && emp.hours > 0 ? fmt(emp.rate * emp.hours) : '—'}</div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function toggleEmp(id) {
+    const emp = ROLES.find(e => e.id === id);
+    emp.enabled = !emp.enabled;
+    const row = document.getElementById('row-' + id);
+    const cb = document.getElementById('cb-' + id);
+    const name = document.getElementById('name-' + id);
+    row.className = 'emp-row' + (emp.enabled ? '' : ' disabled');
+    cb.className = 'checkbox' + (emp.enabled ? ' checked' : '');
+    cb.style.background = emp.enabled ? emp.color : 'transparent';
+    name.style.color = emp.enabled ? '#fff' : '#5A7090';
+    recalc();
+  }
+
+  function updateEmp(id, field, val) {
+    const emp = ROLES.find(e => e.id === id);
+    emp[field] = Math.max(0, Number(val));
+    const sub = document.getElementById('sub-' + id);
+    sub.textContent = emp.enabled && emp.hours > 0 ? fmt(emp.rate * emp.hours) : '—';
+    sub.style.color = emp.enabled && emp.hours > 0 ? emp.color : '#3A4A6B';
+    recalc();
+  }
+
+  function toggleOverride() {
+    overrideMode = !overrideMode;
+    const toggle = document.getElementById('override-toggle');
+    toggle.className = 'toggle' + (overrideMode ? ' on' : '');
+    const section = document.getElementById('override-section');
+    section.style.display = overrideMode ? 'block' : 'none';
+    if (overrideMode) {
+      const loaded = calcLoaded();
+      document.getElementById('override-val').value = Math.round(loaded);
+    }
+    recalc();
+  }
+
+  function calcLoaded() {
+    const active = ROLES.filter(e => e.enabled);
+    const raw = active.reduce((s, e) => s + e.rate * e.hours, 0);
+    return raw * (1 + OVERHEAD);
+  }
+
+  function recalc() {
+    const active = ROLES.filter(e => e.enabled);
+    const raw = active.reduce((s, e) => s + e.rate * e.hours, 0);
+    const loaded = raw * (1 + OVERHEAD);
+    const totalHours = active.reduce((s, e) => s + e.hours, 0);
+    const displayCost = overrideMode ? Math.max(0, Number(document.getElementById('override-val').value)) : loaded;
+
+    document.getElementById('total-hours').textContent = totalHours;
+    document.getElementById('raw-labor').textContent = fmt(raw);
+    document.getElementById('overhead-val').textContent = fmt(loaded - raw);
+    document.getElementById('loaded-cost').textContent = fmt(loaded);
+
+    if (overrideMode) {
+      document.getElementById('override-hint').textContent = `Coût auto calculé : ${fmt(loaded)} — vous utilisez un coût manuel de ${fmt(displayCost)}`;
+    }
+
+    // Update subtotals
+    ROLES.forEach(emp => {
+      const sub = document.getElementById('sub-' + emp.id);
+      if (sub) {
+        sub.textContent = emp.enabled && emp.hours > 0 ? fmt(emp.rate * emp.hours) : '—';
+        sub.style.color = emp.enabled && emp.hours > 0 ? emp.color : '#3A4A6B';
+      }
+    });
+
+    // Scenarios
+    [30, 40, 50].forEach(pct => {
+      const price = displayCost / (1 - pct / 100);
+      const marginD = price - displayCost;
+      document.getElementById('price-' + pct).textContent = fmt(price);
+      document.getElementById('margin-' + pct).textContent = fmt(marginD);
+    });
+
+    // Effective rates
+    const effDiv = document.getElementById('eff-rates');
+    if (totalHours === 0) {
+      effDiv.innerHTML = '<div class="no-hours">Entrez des heures pour voir le taux effectif</div>';
+    } else {
+      effDiv.innerHTML = [30, 40, 50].map(pct => {
+        const price = displayCost / (1 - pct / 100);
+        const eff = price / totalHours;
+        const isT = pct === 40;
+        const dotColor = pct === 30 ? '#2A4A80' : pct === 40 ? '#C8973A' : '#27AE60';
+        return `<div class="rate-row ${isT ? 'highlight' : ''}">
+          <div class="rl"><div class="dot" style="background:${dotColor}"></div>Marge ${pct}%</div>
+          <div class="rv" style="color:${isT ? '#C8973A' : '#fff'}">${fmt(eff)}/h</div>
+        </div>`;
+      }).join('');
+    }
+
+    // Bar chart
+    const barDiv = document.getElementById('bar-section');
+    if (displayCost === 0) {
+      barDiv.innerHTML = '<div class="no-hours">Entrez des données pour voir la structure</div>';
+    } else {
+      const price40 = displayCost / 0.60;
+      const costPct = Math.round((displayCost / price40) * 100);
+      barDiv.innerHTML = `
+        <div class="bar-wrap">
+          <div class="bar-cost" style="width:${costPct}%"><span>Coût ${costPct}%</span></div>
+          <div class="bar-margin" style="width:${100 - costPct}%"><span>Marge 40%</span></div>
+        </div>
+        <div class="struct-row">
+          <div class="struct-item">
+            <div class="s-label" style="color:#C0392B">Coût chargé</div>
+            <div class="s-val">${fmt(displayCost)}</div>
+          </div>
+          <div style="font-size:18px;color:#3A4A6B;align-self:center">+</div>
+          <div class="struct-item">
+            <div class="s-label" style="color:#27AE60">Marge brute</div>
+            <div class="s-val">${fmt(price40 - displayCost)}</div>
+          </div>
+          <div style="font-size:18px;color:#3A4A6B;align-self:center">=</div>
+          <div class="struct-item">
+            <div class="s-label" style="color:#C8973A">Prix client</div>
+            <div class="s-val" style="color:#C8973A">${fmt(price40)}</div>
+          </div>
+        </div>`;
+    }
+  }
+
+  buildTable();
+  recalc();
+</script>
+</body>
+</html>
